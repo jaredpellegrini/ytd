@@ -44,6 +44,19 @@ pyinstaller --onefile --name="YTD" ytd.py
 
 ## Desktop file in ~/.local/share/applications
 
+Create a file in ~/.local/share/applications called ytd.desktop with the following (replacing `user`)
+```
+[Desktop Entry]
+Name=YTD
+Comment=YT Downloader Application
+Exec=/home/user/Applications/YTD/dist/YTD
+Icon=/home/user/Applications/YTD/ytd_icon.png
+Terminal=false
+Type=Application
+Categories=Network;Utility;AudioVideo;
+```
+
+Then run
 ```bash
 chmod +x ~/.local/share/applications/ytd.desktop
 ```
