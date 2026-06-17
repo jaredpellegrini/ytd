@@ -1,0 +1,8 @@
+# Ignore local environment and build artifacts
+build/
+dist/
+Downloads/
+venv/
+__pycache__/
+*.spec
+.DS_Store
