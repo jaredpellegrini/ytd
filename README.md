@@ -42,9 +42,9 @@ pyinstaller --onefile --name="YTD" ytd.py
 ./dist/YTD
 ```
 
-## Desktop file in ~/.local/share/applications
+## Desktop file
 
-Create a file in ~/.local/share/applications called ytd.desktop with the following (replacing `user`)
+Create a file in `~/.local/share/applications` called `ytd.desktop` with the following, replacing `user` in the two paths.
 ```
 [Desktop Entry]
 Name=YTD
