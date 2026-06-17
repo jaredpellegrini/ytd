@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
         # Add button to open the download folder
         button_open_folder = QPushButton("Open Downloads folder")
         button_open_folder.clicked.connect(self.open_folder)
-        button_open_folder.setStyleSheet("""QPushButton { min-width: 200px; max-width: 200px; padding: 5px; margin-right: 25px; } """)
+        button_open_folder.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; margin-right: 25px; } ")
         top_layout.addWidget(button_open_folder)
 
         layout.addWidget(top_row)
@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         self.tracknumbers_row.setFixedWidth(475)
         tracknumbers_layout = QHBoxLayout(self.tracknumbers_row)
         tracknumbers_layout.setContentsMargins(0, 0, 0, 0)
-        tracknumbers_label = QLabel("Optional: Specify track numbers (e.g. \"1:3,7\")")
+        tracknumbers_label = QLabel("Optional: Specify track numbers (e.g. '1:3,7')")
         tracknumbers_layout.addWidget(tracknumbers_label)
         self.tracknumbers_input = QLineEdit()
         self.tracknumbers_input.setFixedWidth(150)
@@ -124,7 +124,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(buttons_row2)
 
         # Add a status label
-        self.status_label = QLabel(f"\n")
+        self.status_label = QLabel("\n")
         layout.addWidget(self.status_label)
 
         # Create a Scroll Area
@@ -147,6 +147,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(version_label)
    
     def validate_url(self):
+        # TODO: update to handle "https://youtu.be" shortened links, and "https://youtube.com" links that skip the www
         prefix_playlist = "https://www.youtube.com/playlist"
         prefix_single = "https://www.youtube.com/watch"
         is_playlist = self.url_input.text().startswith(prefix_playlist)
@@ -247,9 +248,10 @@ class MainWindow(QMainWindow):
             self.status_label.setStyleSheet("color: red;")
             self.status_label.setText(f"\nPath not found: {self.target_path}")
 
+if __name__ == '__main__':
+    # Run the app
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
 
-# Run the app
-app = QApplication(sys.argv)
-window = MainWindow()
-window.show()
-sys.exit(app.exec())
