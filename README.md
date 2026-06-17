@@ -17,7 +17,7 @@ This was created and runs on Ubuntu 24.04.4 LTS with Python 3.12.3
 ## Folders
 
 *These exact locations are not hard requirements, just how I have my environment set up.*
-* app.py is located in `~/Applications/YTD/`
+* ytd.py is located in `~/Applications/YTD/`
 * The download folder is `~/Downloads/YTD/` (can be changed in the code)
 
 ## Running via Terminal
@@ -26,7 +26,7 @@ This was created and runs on Ubuntu 24.04.4 LTS with Python 3.12.3
 cd ~/Applications/YTD/
 python3 -m venv venv
 source venv/bin/activate
-python3 app.py
+python3 ytd.py
 ```
 
 ## Building the app
@@ -37,7 +37,7 @@ python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
 pip install PySide6 pyinstaller
-pyinstaller --onefile --name="YTD" app.py
+pyinstaller --onefile --name="YTD" ytd.py
 # Then execute
 ./dist/YTD
 ```
