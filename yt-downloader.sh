@@ -3,7 +3,7 @@
 # Enable case-insensitive matching
 shopt -s nocasematch
 
-cd ./Downloads/yt-dlp/
+cd ~/Downloads/yt-dlp/
 
 download_single_file() {
     yt-dlp -t "$1" --output "%(title)s.%(ext)s" "$2"
@@ -15,11 +15,12 @@ download_subtitles() {
 
 while true; do
     echo -e "\e[32m\n--- YT DOWNLOADER (x to quit) ---\e[0m"
-    echo "1) Download a single video as mp3 audio"
-    echo "2) Download a playlist as mp3 audio"
-    echo "3) Download a single video as mp4 file"
-    echo "4) Download subtitles to srt file"
-    read -p "Select [1-4]: " choice
+    echo "1) Download a single YT video as mp3 audio"
+    echo "2) Download a YT playlist as mp3 audio"
+    echo "3) Download a single YT video as mp4 file"
+    echo "4) Download YT subtitles to srt file"
+    echo "5) Try a non-YT URL"
+    read -p "Select [1-5]: " choice
 
     case $choice in
         1)
@@ -72,6 +73,35 @@ while true; do
                 download_subtitles "$url"
             elif [[ "$url" != x ]]; then
                 echo -e "\e[31mInvalid URL. Try again.\e[0m"
+            fi
+            ;;
+
+        5)
+            echo -e "\nEnter any URL or enter \"x\" to go back"
+            read -p "URL: " url
+            if [[ "$url" != x ]]; then
+                echo -e "\nWhat format?"
+                echo "1) MP3 Audio"
+                echo "2) MP4 Video"
+                echo "3) SRT Subtitles"
+                read -p "Select [1-3]: " format
+
+                case $format in
+                    1)
+                        download_single_file "mp3" "$url"
+                        ;;
+
+                    2)
+                        download_single_file "mp4" "$url"
+                        ;;
+
+                    3)
+                        download_subtitles "$url"
+                        ;;
+
+                    x) echo ""; break ;;
+                    *) echo -e "\e[31mInvalid format. Try again.\e[0m" ;;
+                esac
             fi
             ;;
 
