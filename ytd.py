@@ -2,8 +2,8 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-06-14
-Version: 1.0.1
+Date: 2026-06-19
+Version: 1.0.2
 License: The Unlicense
 """
 
@@ -13,11 +13,12 @@ from PySide6.QtCore import (QProcess, Qt, QUrl)
 from PySide6.QtGui import (QDesktopServices, QIcon)
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLineEdit, QLabel, QScrollArea, QSpacerItem, QSizePolicy)
+from downloader import DownloaderHelper
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.1"
+        self.version_number = "1.0.2"
 
         app.setStyleSheet("""
             QPushButton {
@@ -56,7 +57,8 @@ class MainWindow(QMainWindow):
         top_layout.setContentsMargins(0, 0, 0, 0)
 
         # Add some instructions
-        instructions_label = QLabel("URL formats:\n\nhttps://www.youtube.com/watch?v=... (single video)\nhttps://www.youtube.com/playlist?list=... (playlist)\n")
+        instructions_label = QLabel('\n<a href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md">Supported Sites</a>\n')
+        instructions_label.setOpenExternalLinks(True)
         top_layout.addWidget(instructions_label)
 
         # Add button to open the download folder
@@ -147,16 +149,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(version_label)
    
     def validate_url(self):
-        # TODO: update to handle "https://youtu.be" shortened links, and "https://youtube.com" links that skip the www
-        prefix_playlist = "https://www.youtube.com/playlist"
-        prefix_single = "https://www.youtube.com/watch"
-        is_playlist = self.url_input.text().startswith(prefix_playlist)
-        is_single = self.url_input.text().startswith(prefix_single)
-        self.button_playlist.setEnabled(is_playlist)
-        self.button_single_mp3.setEnabled(is_single)
-        self.button_single_mp4.setEnabled(is_single)
-        self.button_subtitles.setEnabled(is_single)
-        if is_playlist:
+        url_results = DownloaderHelper.analyze_url(self.url_input.text())
+        self.button_playlist.setEnabled(url_results["is_playlist"])
+        self.button_single_mp3.setEnabled(url_results["is_video"])
+        self.button_single_mp4.setEnabled(url_results["is_video"])
+        self.button_subtitles.setEnabled(url_results["is_video"])
+        if url_results["is_playlist"]:
             self.tracknumbers_row.show()
         else:
             self.tracknumbers_row.hide()
@@ -171,50 +169,22 @@ class MainWindow(QMainWindow):
         self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText("\nDownloading playlist...")
-        url = self.url_input.text()
-        tracknumbers = self.tracknumbers_input.text()
-        command = [
-            "yt-dlp", 
-            "-t", "mp3",
-            "--output", f"{self.target_path}/%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s"
-        ]
-        if tracknumbers:
-            command.extend(["--playlist-items", tracknumbers])
-        command.extend([url])
-        self.process.start(command[0], command[1:])
         self.output_label.setText("Starting download...\n")
+        DownloaderHelper.download_playlist(self, self.url_input.text(), self.target_path, "mp3", self.tracknumbers_input.text())
 
     def download_single_file(self, format):
         self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText(f"\nDownloading {format}...")
-        url = self.url_input.text()
-        command = [
-            "yt-dlp", 
-            "-t", format,
-            "--output", f"{self.target_path}/%(title)s.%(ext)s",
-            url
-        ]
-        self.process.start(command[0], command[1:])
         self.output_label.setText("Starting download...\n")
+        DownloaderHelper.download_single_file(self, self.url_input.text(), self.target_path, format)
 
     def download_subtitles(self):
         self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText("\nDownloading subtitles...")
-        url = self.url_input.text()
-        command = [
-            "yt-dlp", 
-            "--skip-download",
-            "--write-subs",
-            "--write-auto-subs",
-            "--sub-lang", "en",
-            "--sub-format", "srt",   
-            "--output", f"{self.target_path}/%(title)s.%(ext)s",
-            url
-        ]
-        self.process.start(command[0], command[1:])
         self.output_label.setText("Starting download...\n")
+        DownloaderHelper.download_subtitles(self, self.url_input.text(), self.target_path)
 
     def update_console_with_process_output(self):
         # Read the data from the process
