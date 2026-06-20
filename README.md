@@ -8,7 +8,9 @@ I found myself repeatedly copying and pasting the same `yt-dlp` commands any tim
 
 ## Prerequisite
 
-This application requires that **yt-dlp** is installed. You can find more information about it [here](https://github.com/yt-dlp/yt-dlp).
+This application requires **yt-dlp**. You can find more information about it [here](https://github.com/yt-dlp/yt-dlp).
+
+A list of sites supported by yt-dlp can be found [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ## Versions
 
@@ -63,4 +65,6 @@ chmod +x ~/.local/share/applications/ytd.desktop
 
 # CHANGELOG
 
+* v1.0.3: Converted helper to worker
+* v1.0.2: Created download helper, improved URL analyzer
 * v1.0.1: First version.

@@ -2,8 +2,8 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-06-19
-Version: 1.0.2
+Date: 2026-06-20
+Version: 1.0.3
 License: The Unlicense
 """
 
@@ -13,12 +13,12 @@ from PySide6.QtCore import (QProcess, Qt, QUrl)
 from PySide6.QtGui import (QDesktopServices, QIcon)
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLineEdit, QLabel, QScrollArea, QSpacerItem, QSizePolicy)
-from downloader import DownloaderHelper
+from downloader import DownloaderWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.2"
+        self.version_number = "1.0.3"
 
         app.setStyleSheet("""
             QPushButton {
@@ -30,18 +30,17 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        self.build_ui()
-
         # Set download path, create if it doesn't exits, ignore if it does
         self.target_path = os.path.expanduser("~/Downloads/YTD")
         os.makedirs(self.target_path, exist_ok=True)
 
-        # Initialize the d/l process
-        self.process = QProcess()
-        # Connect the output signal to the update function
-        self.process.readyReadStandardOutput.connect(self.update_console_with_process_output)
-        # Run when the process finishes
-        self.process.finished.connect(self.on_process_finished)
+        # Instantiate the worker
+        self.worker = DownloaderWorker()
+        # Connect the worker signals to UI functions
+        self.worker.output_received.connect(self.update_console_with_process_output)
+        self.worker.finished.connect(self.on_process_finished)
+
+        self.build_ui()
 
     def build_ui(self):
         self.setWindowTitle("YT Downloader")
@@ -149,7 +148,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(version_label)
    
     def validate_url(self):
-        url_results = DownloaderHelper.analyze_url(self.url_input.text())
+        url_results = DownloaderWorker.analyze_url(self.url_input.text())
         self.button_playlist.setEnabled(url_results["is_playlist"])
         self.button_single_mp3.setEnabled(url_results["is_video"])
         self.button_single_mp4.setEnabled(url_results["is_video"])
@@ -170,26 +169,35 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText("\nDownloading playlist...")
         self.output_label.setText("Starting download...\n")
-        DownloaderHelper.download_playlist(self, self.url_input.text(), self.target_path, "mp3", self.tracknumbers_input.text())
+        self.worker.download_playlist(
+            self.url_input.text(),
+            self.target_path,
+            "mp3",
+            self.tracknumbers_input.text()
+        )
 
     def download_single_file(self, format):
         self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText(f"\nDownloading {format}...")
         self.output_label.setText("Starting download...\n")
-        DownloaderHelper.download_single_file(self, self.url_input.text(), self.target_path, format)
+        self.worker.download_single_file(
+            self.url_input.text(),
+            self.target_path,
+            format
+        )
 
     def download_subtitles(self):
         self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
         self.status_label.setText("\nDownloading subtitles...")
         self.output_label.setText("Starting download...\n")
-        DownloaderHelper.download_subtitles(self, self.url_input.text(), self.target_path)
+        self.worker.download_subtitles(
+            self.url_input.text(),
+            self.target_path
+        )
 
-    def update_console_with_process_output(self):
-        # Read the data from the process
-        data = self.process.readAllStandardOutput().data().decode()
-        
+    def update_console_with_process_output(self, data: str):
         # Append the new data to the label's existing text
         current_text = self.output_label.text()
         self.output_label.setText(current_text + data)
@@ -202,6 +210,9 @@ class MainWindow(QMainWindow):
         if exit_code == 0:
             self.status_label.setStyleSheet("color: green;")
             self.status_label.setText("\nSuccess!")
+        elif exit_status == QProcess.Crashed:
+            self.status_label.setStyleSheet("color: red;")
+            self.status_label.setText(f"\nError: Process crashed!")
         else:
             self.status_label.setStyleSheet("color: red;")
             self.status_label.setText(f"\nError: Process exited with code {exit_code}")
