@@ -65,6 +65,7 @@ chmod +x ~/.local/share/applications/ytd.desktop
 
 # CHANGELOG
 
+* v1.0.4: Consolidated downloads, added format selectors
 * v1.0.3: Converted helper to worker
 * v1.0.2: Created download helper, improved URL analyzer
 * v1.0.1: First version.

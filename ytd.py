@@ -2,8 +2,8 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-06-20
-Version: 1.0.3
+Date: 2026-06-22
+Version: 1.0.4
 License: The Unlicense
 """
 
@@ -11,24 +11,17 @@ import os
 import sys
 from PySide6.QtCore import (QProcess, Qt, QUrl)
 from PySide6.QtGui import (QDesktopServices, QIcon)
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                               QPushButton, QLineEdit, QLabel, QScrollArea, QSpacerItem, QSizePolicy)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
+                               QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 from downloader import DownloaderWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.3"
+        self.version_number = "1.0.4"
 
-        app.setStyleSheet("""
-            QPushButton {
-                min-width: 350px;
-                max-width: 350px;
-            }
-            QPushButton:hover {
-                background-color: #ccccff;
-            }
-        """)
+        # Add hover color to all app buttons
+        app.setStyleSheet("QPushButton:hover { background-color: #ccccff; }")
 
         # Set download path, create if it doesn't exits, ignore if it does
         self.target_path = os.path.expanduser("~/Downloads/YTD")
@@ -63,7 +56,7 @@ class MainWindow(QMainWindow):
         # Add button to open the download folder
         button_open_folder = QPushButton("Open Downloads folder")
         button_open_folder.clicked.connect(self.open_folder)
-        button_open_folder.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; margin-right: 25px; } ")
+        button_open_folder.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; }")
         top_layout.addWidget(button_open_folder)
 
         layout.addWidget(top_row)
@@ -71,7 +64,7 @@ class MainWindow(QMainWindow):
         # Add the url text box
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter a URL")
-        self.url_input.textChanged.connect(self.validate_url)
+        self.url_input.textChanged.connect(self.validate_inputs)
         url_action = self.url_input.addAction(QIcon.fromTheme("edit-clear"), QLineEdit.TrailingPosition)
         url_action.triggered.connect(self.url_input.clear)
         layout.addWidget(self.url_input)
@@ -91,38 +84,31 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tracknumbers_row)
         self.tracknumbers_row.hide()
 
-        # Add the download buttons
-        buttons_row1 = QWidget()
-        buttons_layout1 = QHBoxLayout(buttons_row1)
-        buttons_layout1.setContentsMargins(0, 0, 0, 0)
+        # Add format options
+        self.formats_row = QWidget()
+        # self.formats_row.setFixedWidth(400)
+        formats_layout = QHBoxLayout(self.formats_row)
+        formats_layout.setContentsMargins(0, 0, 0, 0)
+        formats_label = QLabel("Formats: ")
+        formats_layout.addWidget(formats_label)
+        self.format_mp3_cbx = QCheckBox("MP3 audio", self)
+        self.format_mp3_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_mp3_cbx)
+        self.format_mp4_cbx = QCheckBox("MP4 video", self)
+        self.format_mp4_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_mp4_cbx)
+        self.format_srt_cbx = QCheckBox("SRT subtitles", self)
+        self.format_srt_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_srt_cbx)
 
-        self.button_playlist = QPushButton("Download a playlist as mp3 audio")
-        self.button_playlist.clicked.connect(self.download_playlist)
-        self.button_playlist.setEnabled(False)
-        buttons_layout1.addWidget(self.button_playlist)
+        # Add the download button
+        self.button_download = QPushButton("Start Download")
+        self.button_download.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; font-weight:bold; margin-left: 200px; }")
+        self.button_download.clicked.connect(self.download_files)
+        self.button_download.setEnabled(False)
+        formats_layout.addWidget(self.button_download)
 
-        self.button_single_mp4 = QPushButton("Download a single video as mp4 file")
-        self.button_single_mp4.clicked.connect(lambda: self.download_single_file("mp4"))
-        self.button_single_mp4.setEnabled(False)
-        buttons_layout1.addWidget(self.button_single_mp4)
-
-        layout.addWidget(buttons_row1)
-
-        buttons_row2 = QWidget()
-        buttons_layout2 = QHBoxLayout(buttons_row2)
-        buttons_layout2.setContentsMargins(0, 0, 0, 0) # Removes default padding
-
-        self.button_single_mp3 = QPushButton("Download a single video as mp3 audio")
-        self.button_single_mp3.clicked.connect(lambda: self.download_single_file("mp3"))
-        self.button_single_mp3.setEnabled(False)
-        buttons_layout2.addWidget(self.button_single_mp3)
-
-        self.button_subtitles = QPushButton("Download subtitles to srt file")
-        self.button_subtitles.clicked.connect(self.download_subtitles)
-        self.button_subtitles.setEnabled(False)
-        buttons_layout2.addWidget(self.button_subtitles)
-
-        layout.addWidget(buttons_row2)
+        layout.addWidget(self.formats_row)
 
         # Add a status label
         self.status_label = QLabel("\n")
@@ -147,55 +133,81 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(version_label)
    
-    def validate_url(self):
-        url_results = DownloaderWorker.analyze_url(self.url_input.text())
-        self.button_playlist.setEnabled(url_results["is_playlist"])
-        self.button_single_mp3.setEnabled(url_results["is_video"])
-        self.button_single_mp4.setEnabled(url_results["is_video"])
-        self.button_subtitles.setEnabled(url_results["is_video"])
-        if url_results["is_playlist"]:
-            self.tracknumbers_row.show()
-        else:
+    def validate_inputs(self):
+        self.url_results = DownloaderWorker.analyze_url(self.url_input.text())
+
+        if not self.url_results["is_valid"]:
             self.tracknumbers_row.hide()
+            self.button_download.setEnabled(False)
+        else:
+            # if link contains both a YT video ID and a playlist ID, prompt to choose
+            if self.url_results["list_id"] is not None and self.url_results["video_id"] is not None:
+                self.prompt_single_or_playlist()
 
-    def disable_buttons(self):
-        self.button_playlist.setEnabled(False)
-        self.button_single_mp3.setEnabled(False)
-        self.button_single_mp4.setEnabled(False)
-        self.button_subtitles.setEnabled(False)
+            if self.url_results["list_id"] is not None:
+                self.tracknumbers_row.show()
+            else:
+                self.tracknumbers_row.hide()
 
-    def download_playlist(self):
-        self.disable_buttons()
-        self.status_label.setStyleSheet("color: black;")
-        self.status_label.setText("\nDownloading playlist...")
+            if not self.format_mp3_cbx.isChecked() and not self.format_mp4_cbx.isChecked() and not self.format_srt_cbx.isChecked():
+                self.button_download.setEnabled(False)
+            else:
+                self.button_download.setEnabled(True)
+
+    def prompt_single_or_playlist(self):
+        msg = QMessageBox()
+        msg.setWindowTitle("Playlist Video Link")
+        msg.setText("This link contains both a video and a playlist.")
+        msg.setInformativeText("Do you want to download just the video or the whole playlist?")
+        btn_video = msg.addButton("Video", QMessageBox.ActionRole)
+        btn_video.setStyleSheet("QPushButton { min-width: 120px; max-width: 120px; padding: 5px; margin-right: 25px; }")
+        btn_playlist = msg.addButton("Playlist", QMessageBox.ActionRole)
+        btn_playlist.setStyleSheet("QPushButton { min-width: 120px; max-width: 120px; padding: 5px; margin-right: 25px; }")
+        btn_cancel = msg.addButton("Cancel", QMessageBox.ActionRole)
+        btn_cancel.setStyleSheet("QPushButton { min-width: 120px; max-width: 120px; padding: 5px; }")
+        msg.exec()
+
+        self.url_input.blockSignals(True)  # Stop the signal from firing
+        if msg.clickedButton() == btn_video:
+            self.url_input.setText(DownloaderWorker.reconstruct_url(self.url_input.text(), "v"))
+            self.url_results["list_id"] = None
+        elif msg.clickedButton() == btn_playlist:
+            self.url_input.setText(DownloaderWorker.reconstruct_url(self.url_input.text(), "list"))
+            self.url_results["video_id"] = None
+        elif msg.clickedButton() == btn_cancel:
+            self.url_input.setText("")
+            self.url_results["video_id"] = None
+            self.url_results["list_id"] = None
+        self.url_input.blockSignals(False) # Turn the signal back on
+
+    def download_files(self):
+        self.button_download.setEnabled(False)
+        self.status_label.setText(f"\nDownloading...")
         self.output_label.setText("Starting download...\n")
-        self.worker.download_playlist(
-            self.url_input.text(),
-            self.target_path,
-            "mp3",
-            self.tracknumbers_input.text()
-        )
-
-    def download_single_file(self, format):
-        self.disable_buttons()
         self.status_label.setStyleSheet("color: black;")
-        self.status_label.setText(f"\nDownloading {format}...")
-        self.output_label.setText("Starting download...\n")
-        self.worker.download_single_file(
-            self.url_input.text(),
-            self.target_path,
-            format
-        )
-
-    def download_subtitles(self):
-        self.disable_buttons()
-        self.status_label.setStyleSheet("color: black;")
-        self.status_label.setText("\nDownloading subtitles...")
-        self.output_label.setText("Starting download...\n")
-        self.worker.download_subtitles(
-            self.url_input.text(),
-            self.target_path
-        )
+        if self.format_mp3_cbx.isChecked():
+            self.worker.download_files(
+                self.url_input.text(),
+                self.target_path,
+                "mp3",
+                bool(self.url_results["list_id"] is not None),
+                self.tracknumbers_input.text()
+            )
+        if self.format_mp4_cbx.isChecked():
+            self.worker.download_files(
+                self.url_input.text(),
+                self.target_path,
+                "mp4",
+                bool(self.url_results["list_id"] is not None),
+                self.tracknumbers_input.text()
+            )
+        if self.format_srt_cbx.isChecked():
+            self.worker.download_subtitles(
+                self.url_input.text(),
+                self.target_path,
+                bool(self.url_results["list_id"] is not None),
+                self.tracknumbers_input.text()
+            )
 
     def update_console_with_process_output(self, data: str):
         # Append the new data to the label's existing text
@@ -206,19 +218,20 @@ class MainWindow(QMainWindow):
         scrollbar = self.scroll_area.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def on_process_finished(self, exit_code, exit_status):
-        if exit_code == 0:
+    def on_process_finished(self, _command, exit_code, num_remaining_processes):
+        if exit_code == 0 and num_remaining_processes == 0:
             self.status_label.setStyleSheet("color: green;")
             self.status_label.setText("\nSuccess!")
-        elif exit_status == QProcess.Crashed:
+        elif self.worker.process.exitStatus() == QProcess.Crashed:
             self.status_label.setStyleSheet("color: red;")
             self.status_label.setText(f"\nError: Process crashed!")
-        else:
+        elif exit_code != 0:
             self.status_label.setStyleSheet("color: red;")
             self.status_label.setText(f"\nError: Process exited with code {exit_code}")
             
-        # Re-enable appropriate buttons
-        self.validate_url()
+        # When the queue is empty, re-validate inputs to enable new download
+        if num_remaining_processes == 0:
+            self.validate_inputs()
 
     def open_folder(self):
         # already confirmed above that the folder exists, but check again just in case
