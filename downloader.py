@@ -4,6 +4,8 @@ from urllib.parse import urlparse, parse_qs
 
 class DownloaderWorker(QObject):
     output_received = Signal(str)
+    progress_received = Signal(float)
+    file_size_received = Signal(str)
     finished = Signal(list, int, int)
     error = Signal(str)
 
@@ -36,15 +38,35 @@ class DownloaderWorker(QObject):
         self._process_next()
 
     def _handle_output(self):
-        data = self.process.readAllStandardOutput().data().decode()
-        self.output_received.emit(data)
+        data = self.process.readAllStandardOutput().data().decode("utf-8", errors="ignore")
+        # self.output_received.emit(data)
+
+        for line in data.splitlines():
+            # Check if it's a progress line
+            if "[download]" in line and "%" in line:
+                # Extract progress percentage
+                match_pct = re.search(r'\[download\]\s+(\d+(?:\.\d+)?)%', line)
+                if match_pct:
+                    self.progress_received.emit(float(match_pct.group(1)))
+
+                # Extract total file size
+                match_size = re.search(r'of\s+([~\d\.]+\s*[KMGT]?iB)', line)
+                if match_size:
+                    self.file_size_received.emit(match_size.group(1))
+
+                # don't send progress line to the console
+                continue
+
+            # Send all other logs (errors, metadata, completion notes) to the console
+            self.output_received.emit(line + "\n")
 
     def _handle_error(self, error):
         self.error.emit(f"Process error: {error}")
 
     def download_files(self, url: str, path: str, format: str, is_playlist: bool, tracknumbers: str):
         cmd = [
-            "yt-dlp", 
+            "yt-dlp",
+            "--newline",
             "-t", format
         ]
         if is_playlist:
@@ -58,7 +80,8 @@ class DownloaderWorker(QObject):
 
     def download_subtitles(self, url: str, path: str, is_playlist: bool, tracknumbers: str):
         cmd = [
-            "yt-dlp", 
+            "yt-dlp",
+            "--newline",
             "--skip-download",
             "--write-subs",
             "--write-auto-subs",

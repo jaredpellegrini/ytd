@@ -2,23 +2,23 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-06-22
-Version: 1.0.4
+Date: 2026-09-09
+Version: 1.0.5
 License: The Unlicense
 """
 
 import os
 import sys
 from PySide6.QtCore import (QProcess, Qt, QUrl)
-from PySide6.QtGui import (QDesktopServices, QIcon)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
-                               QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
+from PySide6.QtGui import (QDesktopServices, QIcon, QTextCursor)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
+                               QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 from downloader import DownloaderWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.4"
+        self.version_number = "1.0.5"
 
         # Add hover color to all app buttons
         app.setStyleSheet("QPushButton:hover { background-color: #ccccff; }")
@@ -31,6 +31,8 @@ class MainWindow(QMainWindow):
         self.worker = DownloaderWorker()
         # Connect the worker signals to UI functions
         self.worker.output_received.connect(self.update_console_with_process_output)
+        self.worker.progress_received.connect(self.update_progress_bar)
+        self.worker.file_size_received.connect(self.update_file_size_label)
         self.worker.finished.connect(self.on_process_finished)
 
         self.build_ui()
@@ -86,7 +88,6 @@ class MainWindow(QMainWindow):
 
         # Add format options
         self.formats_row = QWidget()
-        # self.formats_row.setFixedWidth(400)
         formats_layout = QHBoxLayout(self.formats_row)
         formats_layout.setContentsMargins(0, 0, 0, 0)
         formats_label = QLabel("Formats: ")
@@ -110,29 +111,44 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.formats_row)
 
-        # Add a status label
-        self.status_label = QLabel("\n")
-        layout.addWidget(self.status_label)
-
         # Create a Scroll Area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True) # Important: allows label to fill the area
         self.scroll_area.setStyleSheet("background-color: black; border: 1px solid #333;")
-        self.output_label = QLabel("")
-        self.output_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.output_label.setStyleSheet("color: white; font-family: 'Courier New', Courier, monospace; font-size: 12px; padding: 5px;")
-        self.scroll_area.setWidget(self.output_label)
+        self.console_output = QPlainTextEdit(self)
+        self.console_output.setReadOnly(True)
+        self.console_output.setStyleSheet("color: white; font-family: 'Courier New', Courier, monospace; font-size: 12px; padding: 5px;")
+        self.scroll_area.setWidget(self.console_output)
+
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
         layout.addWidget(self.scroll_area)
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        # Create the version label
+        # Add status and progress bar
+        self.status_progress_row = QWidget()
+        self.status_progress_row.setStyleSheet("background-color: #eeeeee; padding-top: 5px; padding-bottom: 5px;")
+        status_progress_layout = QHBoxLayout(self.status_progress_row)
+        status_progress_layout.setContentsMargins(0, 0, 0, 0)
+        # Version label
         version_label = QLabel(f"v{self.version_number}")
-        version_label.setStyleSheet("color: #666666; font-size: 12px;")
-        version_label.setAlignment(Qt.AlignRight | Qt.AlignBottom)
-        
-        layout.addWidget(version_label)
-   
+        version_label.setStyleSheet("color: #666666; font-size: 12px; max-width: 40px;")
+        status_progress_layout.addWidget(version_label)
+        #version_label.setAlignment(Qt.AlignRight | Qt.AlignBottom)
+        # Status label
+        self.status_label = QLabel(" ")
+        status_progress_layout.addWidget(self.status_label)
+        # File size
+        self.size_label = QLabel(" ")
+        status_progress_layout.addWidget(self.size_label)
+        # Progress bar
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setStyleSheet("QProgressBar { min-width: 300px; max-width: 300px; min-height: 20px; max-height: 20px; text-align: center; padding: 0px; }")
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        status_progress_layout.addWidget(self.progress_bar)
+
+        layout.addWidget(self.status_progress_row)
+
     def validate_inputs(self):
         self.url_results = DownloaderWorker.analyze_url(self.url_input.text())
 
@@ -182,9 +198,10 @@ class MainWindow(QMainWindow):
 
     def download_files(self):
         self.button_download.setEnabled(False)
-        self.status_label.setText(f"\nDownloading...")
-        self.output_label.setText("Starting download...\n")
+        self.status_label.setText(f"Downloading...")
         self.status_label.setStyleSheet("color: black;")
+        self.console_output.clear()
+        self.console_output.appendPlainText("Starting download...")
         if self.format_mp3_cbx.isChecked():
             self.worker.download_files(
                 self.url_input.text(),
@@ -210,24 +227,35 @@ class MainWindow(QMainWindow):
             )
 
     def update_console_with_process_output(self, data: str):
-        # Append the new data to the label's existing text
-        current_text = self.output_label.text()
-        self.output_label.setText(current_text + data)
-        
-        # Auto-scroll to the bottom
-        scrollbar = self.scroll_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        # Decode bytes to string if data is coming in as bytes
+        if isinstance(data, bytes):
+            data = data.decode("utf-8", errors="ignore")
+
+        text = data.strip()
+        if text:
+            self.console_output.appendPlainText(text)
+
+            # QPlainTextEdit automatically handles vertical auto-scrolling if the cursor is at the end, or you can force it:
+            cursor = self.console_output.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            self.console_output.setTextCursor(cursor)
+
+    def update_progress_bar(self, percent: float):
+        self.progress_bar.setValue(int(percent))
+
+    def update_file_size_label(self, size_str: str):
+        self.size_label.setText(f"Size: {size_str}")
 
     def on_process_finished(self, _command, exit_code, num_remaining_processes):
         if exit_code == 0 and num_remaining_processes == 0:
             self.status_label.setStyleSheet("color: green;")
-            self.status_label.setText("\nSuccess!")
+            self.status_label.setText("Success!")
         elif self.worker.process.exitStatus() == QProcess.Crashed:
             self.status_label.setStyleSheet("color: red;")
-            self.status_label.setText(f"\nError: Process crashed!")
+            self.status_label.setText("Error: Process crashed!")
         elif exit_code != 0:
             self.status_label.setStyleSheet("color: red;")
-            self.status_label.setText(f"\nError: Process exited with code {exit_code}")
+            self.status_label.setText(f"Error: Process exited with code {exit_code}")
             
         # When the queue is empty, re-validate inputs to enable new download
         if num_remaining_processes == 0:
@@ -240,7 +268,7 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(url)
         else:
             self.status_label.setStyleSheet("color: red;")
-            self.status_label.setText(f"\nPath not found: {self.target_path}")
+            self.status_label.setText(f"Path not found: {self.target_path}")
 
 if __name__ == '__main__':
     # Run the app
