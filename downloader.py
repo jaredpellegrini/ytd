@@ -39,7 +39,6 @@ class DownloaderWorker(QObject):
 
     def _handle_output(self):
         data = self.process.readAllStandardOutput().data().decode("utf-8", errors="ignore")
-        # self.output_received.emit(data)
 
         for line in data.splitlines():
             # Check if it's a progress line
