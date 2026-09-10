@@ -44,7 +44,7 @@ class DownloaderWorker(QObject):
 
         for line in data.splitlines():
             # extract list number (if list)
-            match_list_number = re.search(r'\[download\] Downloading item (\d+ of \d)', line)
+            match_list_number = re.search(r'\[download\] Downloading item (\d+ of \d+)', line)
             if match_list_number:
                 self.list_number_received.emit(match_list_number.group(1))
 
