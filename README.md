@@ -65,8 +65,15 @@ chmod +x ~/.local/share/applications/ytd.desktop
 
 # CHANGELOG
 
+* v1.0.6: Improved status label, display list number in progress
 * v1.0.5: Added progress bar, file size, moved status bar to bottom
 * v1.0.4: Consolidated downloads, added format selectors
 * v1.0.3: Converted helper to worker
 * v1.0.2: Created download helper, improved URL analyzer
 * v1.0.1: First version.
+
+# TO DO
+
+* Extract more info from yt-dlp output...
+    * Progress bar percentage should be out of total number of items when list is detected
+    * e.g. \[download\] Downloading item 1 of 4 (each item should account for 25% of progress bar)

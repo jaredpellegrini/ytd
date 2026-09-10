@@ -2,8 +2,8 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-09-09
-Version: 1.0.5
+Date: 2026-09-10
+Version: 1.0.6
 License: The Unlicense
 """
 
@@ -18,7 +18,7 @@ from downloader import DownloaderWorker
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.5"
+        self.version_number = "1.0.6"
 
         # Add hover color to all app buttons
         app.setStyleSheet("QPushButton:hover { background-color: #ccccff; }")
@@ -31,6 +31,8 @@ class MainWindow(QMainWindow):
         self.worker = DownloaderWorker()
         # Connect the worker signals to UI functions
         self.worker.output_received.connect(self.update_console_with_process_output)
+        self.worker.status_received.connect(self.update_status_label)
+        self.worker.list_number_received.connect(self.update_list_number)
         self.worker.progress_received.connect(self.update_progress_bar)
         self.worker.file_size_received.connect(self.update_file_size_label)
         self.worker.finished.connect(self.on_process_finished)
@@ -126,7 +128,7 @@ class MainWindow(QMainWindow):
 
         # Add status and progress bar
         self.status_progress_row = QWidget()
-        self.status_progress_row.setStyleSheet("background-color: #eeeeee; padding-top: 5px; padding-bottom: 5px;")
+        self.status_progress_row.setStyleSheet("background-color: #eeeeee; font-size: 12px;  padding-top: 5px; padding-bottom: 5px;")
         status_progress_layout = QHBoxLayout(self.status_progress_row)
         status_progress_layout.setContentsMargins(0, 0, 0, 0)
         # Version label
@@ -135,10 +137,13 @@ class MainWindow(QMainWindow):
         status_progress_layout.addWidget(version_label)
         #version_label.setAlignment(Qt.AlignRight | Qt.AlignBottom)
         # Status label
-        self.status_label = QLabel(" ")
+        self.status_label = QLabel("")
         status_progress_layout.addWidget(self.status_label)
+        # List number label
+        self.list_number_label = QLabel("")
+        status_progress_layout.addWidget(self.list_number_label)
         # File size
-        self.size_label = QLabel(" ")
+        self.size_label = QLabel("")
         status_progress_layout.addWidget(self.size_label)
         # Progress bar
         self.progress_bar = QProgressBar(self)
@@ -198,8 +203,10 @@ class MainWindow(QMainWindow):
 
     def download_files(self):
         self.button_download.setEnabled(False)
-        self.status_label.setText(f"Downloading...")
+        self.status_label.setText("Starting...")
         self.status_label.setStyleSheet("color: black;")
+        self.list_number_label.setText("")
+        self.size_label.setText("")
         self.console_output.clear()
         self.console_output.appendPlainText("Starting download...")
         if self.format_mp3_cbx.isChecked():
@@ -239,6 +246,13 @@ class MainWindow(QMainWindow):
             cursor = self.console_output.textCursor()
             cursor.movePosition(QTextCursor.End)
             self.console_output.setTextCursor(cursor)
+
+    def update_status_label(self, status_str: str):
+        self.status_label.setText(status_str)
+        self.status_label.setStyleSheet("color: black;")
+
+    def update_list_number(self, list_number_srt: str):
+        self.list_number_label.setText(list_number_srt)
 
     def update_progress_bar(self, percent: float):
         self.progress_bar.setValue(int(percent))

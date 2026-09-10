@@ -4,6 +4,8 @@ from urllib.parse import urlparse, parse_qs
 
 class DownloaderWorker(QObject):
     output_received = Signal(str)
+    status_received = Signal(str)
+    list_number_received = Signal(str)
     progress_received = Signal(float)
     file_size_received = Signal(str)
     finished = Signal(list, int, int)
@@ -41,6 +43,18 @@ class DownloaderWorker(QObject):
         data = self.process.readAllStandardOutput().data().decode("utf-8", errors="ignore")
 
         for line in data.splitlines():
+            # extract list number (if list)
+            match_list_number = re.search(r'\[download\] Downloading item (\d+ of \d)', line)
+            if match_list_number:
+                self.list_number_received.emit(match_list_number.group(1))
+
+            # extract specific statuses
+            if line.startswith("[download]"):
+                self.status_received.emit("Downloading")
+
+            elif line.startswith("[ExtractAudio]"):
+                self.status_received.emit("Extracting Audio")
+
             # Check if it's a progress line
             if "[download]" in line and "%" in line:
                 # Extract progress percentage
