@@ -106,8 +106,6 @@ ffprobe -version
 
 # TO DO
 
-* Fix `Trying to disable 0x31a028b0 but 0x0 is focused` message
-* Integrate `mp3splt` to split large audio files into separate tracks
 * Extract more info from `yt-dlp` output...
     * Progress bar percentage should be out of total number of items when list is detected
     * e.g. \[download\] Downloading item 1 of 4 (each item should account for 25% of progress bar)
