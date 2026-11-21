@@ -12,6 +12,8 @@ This application requires **yt-dlp**. You can find more information about it [he
 
 A list of sites supported by `yt-dlp` can be found [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
+It also requires [ffmpeg](https://www.ffmpeg.org/) to split mp3s into separate tracks (optional).
+
 ## Versions
 
 This was originally created Ubuntu 24.04.4 LTS with Python 3.12.3
@@ -94,6 +96,7 @@ ffprobe -version
 
 # CHANGELOG
 
+* v1.0.7: Added option to split mp3, silenced qt.qpa.wayland.textinput warnings
 * v1.0.6: Improved status label, display list number in progress
 * v1.0.5: Added progress bar, file size, moved status bar to bottom
 * v1.0.4: Consolidated downloads, added format selectors

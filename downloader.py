@@ -1,6 +1,9 @@
-import re
+from collections import deque
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QProcess
 from urllib.parse import urlparse, parse_qs
+import re
+import uuid
 
 class DownloaderWorker(QObject):
     output_received = Signal(str)
@@ -14,28 +17,39 @@ class DownloaderWorker(QObject):
     def __init__(self):
         super().__init__()
         self.process = QProcess()
-        self.queue = []
+        self.queue = deque()  # stores tuples of (cmd_list, on_finished_callback_or_None)
         self.current_command = None
+        self._current_on_finished = None
 
         # Wire up the process signals to the internal handlers
         self.process.readyReadStandardOutput.connect(self._handle_output)
         self.process.finished.connect(self._on_process_finished)
         self.process.errorOccurred.connect(self._handle_error)
 
-    def add_to_queue(self, command):
-        self.queue.append(command)
+    def add_to_queue(self, command, on_finished=None):
+        self.queue.append((command, on_finished))
         if self.process.state() == QProcess.NotRunning:
             self._process_next()
 
     def _process_next(self, *args):
         if self.queue:
-            self.current_command = self.queue.pop(0)
+            self.current_command, self._current_on_finished = self.queue.popleft()
             self.process.start(self.current_command[0], self.current_command[1:])
+        else:
+            self.current_command = None
+            self._current_on_finished = None
 
     def _on_process_finished(self, exit_code, exit_status):
-        # Signal that this process finished
-        if self.current_command:
+        callback = self._current_on_finished
+        self._current_on_finished = None
+
+        if callback:
+            callback(exit_code, exit_status)
+
+        # Signal that this process finished (keeps `list` signature intact)
+        if self.current_command is not None:
             self.finished.emit(self.current_command, exit_code, len(self.queue))
+
         # Trigger the next item in the queue
         self._process_next()
 
@@ -76,7 +90,7 @@ class DownloaderWorker(QObject):
     def _handle_error(self, error):
         self.error.emit(f"Process error: {error}")
 
-    def download_files(self, url: str, path: str, format: str, is_playlist: bool, tracknumbers: str):
+    def download_files(self, url: str, path: str, format: str, is_playlist: bool, tracknumbers: str, times: str):
         cmd = [
             "yt-dlp",
             "--newline",
@@ -88,8 +102,17 @@ class DownloaderWorker(QObject):
                 cmd.extend(["--playlist-items", tracknumbers])
         else:
             cmd.extend(["--output", f"{path}/%(title)s.%(ext)s"])
+
+        on_finished = None
+        if format == "mp3" and times:
+            manifest_path = Path(path) / f".ytdlp_manifest_{uuid.uuid4().hex}.txt"
+            cmd.extend(["--print-to-file", "after_move:filepath", str(manifest_path)])
+            on_finished = lambda exit_code, exit_status, mp=manifest_path, t=times: (
+                self._enqueue_mp3_splits(mp, t, exit_code)
+            )
+
         cmd.extend([url])
-        self.add_to_queue(cmd)
+        self.add_to_queue(cmd, on_finished=on_finished)
 
     def download_subtitles(self, url: str, path: str, is_playlist: bool, tracknumbers: str):
         cmd = [
@@ -108,6 +131,33 @@ class DownloaderWorker(QObject):
         else:
             cmd.extend(["--output", f"{path}/%(title)s.%(ext)s"])
         cmd.extend([url])
+        self.add_to_queue(cmd)
+
+    def _enqueue_mp3_splits(self, manifest_path: Path, times: str, exit_code: int):
+        try:
+            if exit_code == 0 and manifest_path.exists():
+                for line in manifest_path.read_text(encoding="utf-8").splitlines():
+                    filepath = line.strip()
+                    if filepath:
+                        self.split_mp3_track(times, filepath)
+        finally:
+            manifest_path.unlink(missing_ok=True)
+
+    def split_mp3_track(self, times: str, filename: str):
+        src = Path(filename)
+        output_pattern = str(src.with_name(f"%02d - {src.name}"))
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", str(src),
+            "-f", "segment",
+            "-segment_times", times,
+            "-segment_start_number", "1",
+            "-reset_timestamps", "1",
+            "-c", "copy",
+            output_pattern
+        ]
         self.add_to_queue(cmd)
 
     @staticmethod

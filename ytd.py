@@ -2,13 +2,16 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-09-10
-Version: 1.0.6
+Date: 2026-11-20
+Version: 1.0.7
 License: The Unlicense
 """
 
 import os
 import sys
+
+os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.wayland.textinput.warning=false")
+
 from PySide6.QtCore import (QProcess, Qt, QUrl)
 from PySide6.QtGui import (QDesktopServices, QIcon, QTextCursor)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
@@ -18,7 +21,7 @@ from downloader import DownloaderWorker
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.6"
+        self.version_number = "1.0.7"
 
         # Add hover color to all app buttons
         app.setStyleSheet("QPushButton:hover { background-color: #ccccff; }")
@@ -87,6 +90,21 @@ class MainWindow(QMainWindow):
         tracknumbers_layout.addWidget(self.tracknumbers_input)
         layout.addWidget(self.tracknumbers_row)
         self.tracknumbers_row.hide()
+
+        # Add optional tracksplit box
+        self.tracksplit_row = QWidget()
+        self.tracksplit_row.setFixedWidth(800)
+        tracksplit_layout = QHBoxLayout(self.tracksplit_row)
+        tracksplit_layout.setContentsMargins(0, 0, 0, 0)
+        tracksplit_label = QLabel("Optional: Split mp3 track (e.g. '03:45,08:12,12:30')")
+        tracksplit_layout.addWidget(tracksplit_label)
+        self.tracksplit_input = QLineEdit()
+        self.tracksplit_input.setFixedWidth(400)
+        tracksplit_action = self.tracksplit_input.addAction(QIcon.fromTheme("edit-clear"), QLineEdit.TrailingPosition)
+        tracksplit_action.triggered.connect(self.tracksplit_input.clear)
+        tracksplit_layout.addWidget(self.tracksplit_input)
+        layout.addWidget(self.tracksplit_row)
+        self.tracksplit_row.hide()
 
         # Add format options
         self.formats_row = QWidget()
@@ -159,6 +177,7 @@ class MainWindow(QMainWindow):
 
         if not self.url_results["is_valid"]:
             self.tracknumbers_row.hide()
+            self.tracknumbers_input.clear()
             self.button_download.setEnabled(False)
         else:
             # if link contains both a YT video ID and a playlist ID, prompt to choose
@@ -169,11 +188,18 @@ class MainWindow(QMainWindow):
                 self.tracknumbers_row.show()
             else:
                 self.tracknumbers_row.hide()
+                self.tracknumbers_input.clear()
 
             if not self.format_mp3_cbx.isChecked() and not self.format_mp4_cbx.isChecked() and not self.format_srt_cbx.isChecked():
                 self.button_download.setEnabled(False)
             else:
                 self.button_download.setEnabled(True)
+
+            if self.format_mp3_cbx.isChecked() and self.url_results["list_id"] is None:
+                self.tracksplit_row.show()
+            else:
+                self.tracksplit_row.hide()
+                self.tracksplit_input.clear()
 
     def prompt_single_or_playlist(self):
         msg = QMessageBox()
@@ -215,7 +241,8 @@ class MainWindow(QMainWindow):
                 self.target_path,
                 "mp3",
                 bool(self.url_results["list_id"] is not None),
-                self.tracknumbers_input.text()
+                self.tracknumbers_input.text(),
+                self.tracksplit_input.text()
             )
         if self.format_mp4_cbx.isChecked():
             self.worker.download_files(
@@ -223,7 +250,8 @@ class MainWindow(QMainWindow):
                 self.target_path,
                 "mp4",
                 bool(self.url_results["list_id"] is not None),
-                self.tracknumbers_input.text()
+                self.tracknumbers_input.text(),
+                ""
             )
         if self.format_srt_cbx.isChecked():
             self.worker.download_subtitles(
