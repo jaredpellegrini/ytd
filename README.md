@@ -96,6 +96,7 @@ ffprobe -version
 
 # CHANGELOG
 
+* v1.0.8: Small UI update
 * v1.0.7: Added option to split mp3, silenced qt.qpa.wayland.textinput warnings
 * v1.0.6: Improved status label, display list number in progress
 * v1.0.5: Added progress bar, file size, moved status bar to bottom

@@ -2,8 +2,8 @@
 Module Name: ytd.py
 Description: A simple desktop audio/video downloader app
 Author: jpellegrini
-Date: 2026-11-20
-Version: 1.0.7
+Date: 2026-11-22
+Version: 1.0.8
 License: The Unlicense
 """
 
@@ -21,7 +21,7 @@ from downloader import DownloaderWorker
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.version_number = "1.0.7"
+        self.version_number = "1.0.8"
 
         # Add hover color to all app buttons
         app.setStyleSheet("QPushButton:hover { background-color: #ccccff; }")
@@ -76,6 +76,31 @@ class MainWindow(QMainWindow):
         url_action.triggered.connect(self.url_input.clear)
         layout.addWidget(self.url_input)
 
+        # Add format options
+        self.formats_row = QWidget()
+        formats_layout = QHBoxLayout(self.formats_row)
+        formats_layout.setContentsMargins(0, 0, 0, 0)
+        formats_label = QLabel("Formats: ")
+        formats_layout.addWidget(formats_label)
+        self.format_mp3_cbx = QCheckBox("MP3 audio", self)
+        self.format_mp3_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_mp3_cbx)
+        self.format_mp4_cbx = QCheckBox("MP4 video", self)
+        self.format_mp4_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_mp4_cbx)
+        self.format_srt_cbx = QCheckBox("SRT subtitles", self)
+        self.format_srt_cbx.checkStateChanged.connect(self.validate_inputs)
+        formats_layout.addWidget(self.format_srt_cbx)
+
+        # Add the download button
+        self.button_download = QPushButton("Start Download")
+        self.button_download.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; font-weight:bold; margin-left: 200px; }")
+        self.button_download.clicked.connect(self.download_files)
+        self.button_download.setEnabled(False)
+        formats_layout.addWidget(self.button_download)
+
+        layout.addWidget(self.formats_row)
+
         # Add optional tracknumbers box
         self.tracknumbers_row = QWidget()
         self.tracknumbers_row.setFixedWidth(475)
@@ -105,31 +130,6 @@ class MainWindow(QMainWindow):
         tracksplit_layout.addWidget(self.tracksplit_input)
         layout.addWidget(self.tracksplit_row)
         self.tracksplit_row.hide()
-
-        # Add format options
-        self.formats_row = QWidget()
-        formats_layout = QHBoxLayout(self.formats_row)
-        formats_layout.setContentsMargins(0, 0, 0, 0)
-        formats_label = QLabel("Formats: ")
-        formats_layout.addWidget(formats_label)
-        self.format_mp3_cbx = QCheckBox("MP3 audio", self)
-        self.format_mp3_cbx.checkStateChanged.connect(self.validate_inputs)
-        formats_layout.addWidget(self.format_mp3_cbx)
-        self.format_mp4_cbx = QCheckBox("MP4 video", self)
-        self.format_mp4_cbx.checkStateChanged.connect(self.validate_inputs)
-        formats_layout.addWidget(self.format_mp4_cbx)
-        self.format_srt_cbx = QCheckBox("SRT subtitles", self)
-        self.format_srt_cbx.checkStateChanged.connect(self.validate_inputs)
-        formats_layout.addWidget(self.format_srt_cbx)
-
-        # Add the download button
-        self.button_download = QPushButton("Start Download")
-        self.button_download.setStyleSheet("QPushButton { min-width: 200px; max-width: 200px; padding: 5px; font-weight:bold; margin-left: 200px; }")
-        self.button_download.clicked.connect(self.download_files)
-        self.button_download.setEnabled(False)
-        formats_layout.addWidget(self.button_download)
-
-        layout.addWidget(self.formats_row)
 
         # Create a Scroll Area
         self.scroll_area = QScrollArea()
